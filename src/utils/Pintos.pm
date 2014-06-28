@@ -47,7 +47,7 @@ sub set_part {
     my ($role, $source) = $opt =~ /^([a-z]+)(?:-([a-z]+))?/ or die;
 
     $role = uc $role;
-    $source = 'FILE' if $source eq '';
+    $source = 'FILE' if not defined $source or $source eq '';
 
     die "can't have two sources for \L$role\E partition"
       if exists $parts{$role};
@@ -64,7 +64,7 @@ sub do_set_part {
     my ($role, $source, $arg) = @_;
 
     my ($p) = $parts{$role} = {};
-    if ($source eq 'file') {
+    if ($source eq 'FILE') {
 	if (read_mbr ($arg)) {
 	    print STDERR "warning: $arg looks like a partitioned disk ";
 	    print STDERR "(did you want --$role-from=$arg or --disk=$arg?)\n"
