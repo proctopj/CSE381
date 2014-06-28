@@ -33,7 +33,8 @@ The Perl script does not work by default. The following fixes are necessary:
                 print STDERR "warning: $arg looks like a partitioned disk ";
                 print STDERR "(did you want --$role-from=$arg or --disk=$arg?)\n"
 
-These changes can be found in commit fd59481685fab7b32cecc214f661af9a46e5c119
+These changes can be found in commit
+[fd59481](https://github.com/NigoroJr/CSE381/commit/fd59481685fab7b32cecc214f661af9a46e5c119)
 
 Run pintos with:
 
