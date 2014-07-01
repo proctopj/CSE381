@@ -93,6 +93,9 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* Wait till `ticks' becomes at least this much */
+    uint64_t wait_till_ticks;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
