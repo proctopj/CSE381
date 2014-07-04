@@ -96,6 +96,13 @@ struct thread
     /* Wait till `ticks' becomes at least this much */
     uint64_t wait_till_ticks;
 
+    /* List element for priority */
+    /* Before donation */
+    int priority_before_donation;
+    struct lock *waiting_for_this_lock;
+    struct list donation_list;
+    struct list_elem donation_list_elem;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -141,4 +148,15 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Added functions */
+bool compare_ticks (const struct list_elem *a,
+        const struct list_elem *b,
+        void *aux);
+bool compare_priority (const struct list_elem *a,
+        const struct list_elem *b,
+        void *aux);
+
+void priority_donation (void);
+void reset_priority (void);
+void test_max_priority (void);
 #endif /* threads/thread.h */

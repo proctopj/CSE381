@@ -90,18 +90,6 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-/* Used for list_insert_ordered */
-bool
-compare_ticks (const struct list_elem *a,
-    const struct list_elem *b,
-    void *aux)
-{
-  struct thread *thread_a = list_entry (a, struct thread, elem);
-  struct thread *thread_b = list_entry (b, struct thread, elem);
-
-  return thread_a->wait_till_ticks < thread_b->wait_till_ticks;
-}
-
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
