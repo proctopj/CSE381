@@ -336,7 +336,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   list_insert_ordered (&cond->waiters, &waiter.elem,
-      (list_less_func*)&compare_priority, NULL);
+      (list_less_func*)&compare_semaphore_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -404,5 +404,5 @@ compare_semaphore_priority (const struct list_elem *a,
   struct thread *highest_b = list_entry (
       list_front (&sem_b->waiters), struct thread, elem);
 
-  return highest_a->priority < highest_b->priority;
+  return highest_a->priority > highest_b->priority;
 }

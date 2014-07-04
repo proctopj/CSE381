@@ -358,8 +358,7 @@ thread_set_priority (int new_priority)
 
   struct thread *current_thread = thread_current ();
 
-  current_thread->priority_before_donation = current_thread->priority;
-  current_thread->priority = new_priority;
+  current_thread->priority_before_donation = new_priority;
 
   reset_priority ();
 
