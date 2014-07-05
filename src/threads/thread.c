@@ -354,6 +354,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  /* Don't allow manual priority set */
+  if (thread_mlfqs)
+    return;
+
   enum intr_level old_level = intr_disable ();
 
   struct thread *current_thread = thread_current ();

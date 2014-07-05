@@ -68,7 +68,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      priority_donation ();
+      if (!thread_mlfqs)
+        priority_donation ();
       // Prioritize semaphore wait
       list_insert_ordered (&sema->waiters, &thread_current ()->elem,
               (list_less_func*)&compare_priority, NULL);
@@ -210,7 +211,7 @@ lock_acquire (struct lock *lock)
   enum intr_level old_level = intr_disable ();
 
   /* "Register" myself if someone already has the lock */
-  if (lock->holder)
+  if (!thread_mlfqs && lock->holder)
     {
       thread_current ()->waiting_for_this_lock = lock;
 
@@ -266,9 +267,12 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
 
-  /* Remove lock from everyone's waiting list */
-  remove_lock (lock);
-  reset_priority ();
+  if (!thread_mlfqs)
+    {
+      /* Remove lock from everyone's waiting list */
+      remove_lock (lock);
+      reset_priority ();
+    }
 
   sema_up (&lock->semaphore);
 
