@@ -661,6 +661,10 @@ allocate_tid (void)
   return tid;
 }
 
+/* Offset of `stack' member within `struct thread'.
+   Used by switch.S, which can't figure it out on its own. */
+uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
 /* Used for list_insert_ordered */
 bool
 compare_ticks (const struct list_elem *a,
@@ -687,7 +691,8 @@ compare_priority (const struct list_elem *a,
   return thread_a->priority > thread_b->priority;
 }
 
-void priority_donation (void)
+void
+priority_donation (void)
 {
   struct thread *this_thread = thread_current ();
   struct lock *l = this_thread->waiting_for_this_lock;
@@ -714,7 +719,8 @@ void priority_donation (void)
 
 }
 
-void remove_lock(struct lock *lock)
+void
+remove_lock(struct lock *lock)
 {
   struct list *donations = &thread_current ()->donation_list;
 
@@ -730,7 +736,8 @@ void remove_lock(struct lock *lock)
     }
 }
 
-void reset_priority (void)
+void
+reset_priority (void)
 {
   struct thread *t = thread_current ();
   // Restore initial priority
@@ -745,7 +752,8 @@ void reset_priority (void)
     }
 }
 
-void test_max_priority (void)
+void
+test_max_priority (void)
 {
   if ( list_empty(&ready_list) )
     return;
