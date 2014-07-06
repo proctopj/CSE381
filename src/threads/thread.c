@@ -59,6 +59,8 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+int load_avg;
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -109,6 +111,8 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+
+  load_avg = LOAD_AVG_DEFAULT;
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -391,33 +395,57 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  ASSERT (nice >= NICE_MIN && nice <= NICE_MAX);
+
+  enum intr_level old_level = intr_disable ();
+
+  thread_current ()->nice = nice;
+  mlfqs_calculate_priority (thread_current ());
+  test_max_priority ();
+
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  enum intr_level old_level = intr_disable ();
+
+  int nice = thread_current ()->nice;
+
+  intr_set_level (old_level);
+  return nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  enum intr_level old_level = intr_disable ();
+
+  int load_avg_percent = fixed_point2int_round (
+      fixed_point_multiply_mixed (load_avg, 100));
+
+  intr_set_level (old_level);
+  return load_avg_percent;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  enum intr_level old_level = intr_disable ();
+
+  int recent_cpu_percent = fixed_point_multiply (
+      thread_current ()->recent_cpu, 100);
+  recent_cpu_percent = fixed_point2int_round (recent_cpu_percent);
+
+  intr_set_level (old_level);
+
+  return recent_cpu_percent;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -509,6 +537,18 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority_before_donation = t->priority;
   t->waiting_for_this_lock = NULL;
   list_init (&t->donation_list);
+
+  /* 4.4BSD scheduler  */
+  t->recent_cpu = RECENT_CPU_DEFAULT;
+  t->nice = NICE_DEFAULT;
+
+  /* User programs */
+  list_init(&t->file_list);
+  t->fd = MIN_FD;
+
+  list_init(&t->child_list);
+  t->cp = NULL;
+  t->parent = NO_PARENT;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -724,6 +764,79 @@ void test_max_priority (void)
     thread_yield();
 }
 
-/* Offset of `stack' member within `struct thread'.
-   Used by switch.S, which can't figure it out on its own. */
-uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+void
+mlfqs_calculate_priority (struct thread *t)
+{
+  if (t == idle_thread)
+    return;
+
+  int recent_cpu = thread_get_recent_cpu ();
+  int nice = thread_current ()->nice;
+
+  int new_priority = int2fixed_point (PRI_MAX)
+    - fixed_point_divide_mixed (recent_cpu, 4)
+    - fixed_point_multiply_mixed (nice, 2);
+
+  /* If new priority is not within PRI_MIN and PRI_MAX */
+  if (new_priority > PRI_MAX)
+    new_priority = PRI_MAX;
+  else if (new_priority < PRI_MIN)
+    new_priority = PRI_MIN;
+
+  thread_current ()->priority = new_priority;
+}
+
+void
+mlfqs_calculate_recent_cpu (struct thread *t)
+{
+  int div = fixed_point_divide (
+      fixed_point_multiply_mixed (load_avg, 2),
+      fixed_point_add_mixed (
+        fixed_point_multiply_mixed (load_avg, 2),
+        1));
+  t->recent_cpu = fixed_point_add (
+      fixed_point_multiply (div, t->recent_cpu),
+      t->nice);
+}
+
+void
+mlfqs_calculate_load_avg (void)
+{
+  /* Number of ready threads */
+  int ready_threads = list_size (&ready_list);
+  if (thread_current () != idle_thread)
+    ready_threads++;
+
+  /* (59 / 60) * load_avg */
+  int t11 = fixed_point_divide_mixed (int2fixed_point (59), 60);
+  int t1 = fixed_point_multiply (t11, load_avg);
+
+  /* (1 / 60) * ready_threads */
+  int t21 = fixed_point_divide_mixed (int2fixed_point (1), 60);
+  int t2 = fixed_point_multiply (t21, int2fixed_point (ready_threads));
+
+  load_avg = fixed_point_add (t1, t2);
+}
+
+void
+mlfqs_increment_recent_cpu (struct thread *t)
+{
+  if (t == idle_thread)
+    return;
+
+  t->recent_cpu = fixed_point_add_mixed (t->recent_cpu, 1);
+}
+
+void
+mlfqs_recalculate_priorities (void)
+{
+  struct list_elem *e = list_begin (&all_list);
+  while (e != list_end (&all_list))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      mlfqs_calculate_recent_cpu (t);
+      mlfqs_calculate_priority (t);
+
+      e = list_next (e);
+    }
+}
