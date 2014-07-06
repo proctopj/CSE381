@@ -122,6 +122,16 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    // Needed for file system sys calls
+    struct list file_list;
+    int fd;
+
+    // Needed for wait / exec sys calls
+    struct list child_list;
+    tid_t parent;
+    // Points to child_process struct in parent's child list
+    struct child_process* cp;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -177,4 +187,7 @@ void mlfqs_calculate_recent_cpu (struct thread *t);
 void mlfqs_calculate_load_avg (void);
 void mlfqs_increment_recent_cpu (struct thread *t);
 void mlfqs_recalculate_priorities (void);
+
+/* User programs */
+bool thread_alive (int pid);
 #endif /* threads/thread.h */
