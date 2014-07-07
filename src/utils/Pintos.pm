@@ -64,7 +64,7 @@ sub do_set_part {
     my ($role, $source, $arg) = @_;
 
     my ($p) = $parts{$role} = {};
-    if ($source eq 'FILE') {
+    if ($source =~ /file/i) {
 	if (read_mbr ($arg)) {
 	    print STDERR "warning: $arg looks like a partitioned disk ";
 	    print STDERR "(did you want --$role-from=$arg or --disk=$arg?)\n"
