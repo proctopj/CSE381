@@ -401,7 +401,10 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  enum intr_level old_level = intr_disable ();
+  int priority = thread_current ()->priority;
+  intr_set_level (old_level);
+  return priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -450,7 +453,7 @@ thread_get_recent_cpu (void)
 {
   enum intr_level old_level = intr_disable ();
 
-  int recent_cpu_percent = fixed_point_multiply (
+  int recent_cpu_percent = fixed_point_multiply_mixed (
       thread_current ()->recent_cpu, 100);
   recent_cpu_percent = fixed_point2int_round (recent_cpu_percent);
 
@@ -791,12 +794,18 @@ mlfqs_calculate_priority (struct thread *t)
   if (t == idle_thread)
     return;
 
-  int recent_cpu = thread_get_recent_cpu ();
+  /* Fixed-point */
+  int recent_cpu = thread_current ()->recent_cpu;
+  /* Integer */
   int nice = thread_current ()->nice;
 
-  int new_priority = int2fixed_point (PRI_MAX)
-    - fixed_point_divide_mixed (recent_cpu, 4)
-    - fixed_point_multiply_mixed (nice, 2);
+  int t1 = int2fixed_point (PRI_MAX);
+  int t2 = fixed_point_divide_mixed (recent_cpu, 4);
+  int new_priority = fixed_point_sub (t1, t2);
+  new_priority = fixed_point_sub_mixed (new_priority, nice * 2);
+
+  /* Convert back to int */
+  new_priority = fixed_point2int_round (new_priority);
 
   /* If new priority is not within PRI_MIN and PRI_MAX */
   if (new_priority > PRI_MAX)
@@ -810,12 +819,16 @@ mlfqs_calculate_priority (struct thread *t)
 void
 mlfqs_calculate_recent_cpu (struct thread *t)
 {
-  int div = fixed_point_divide (
-      fixed_point_multiply_mixed (load_avg, 2),
-      fixed_point_add_mixed (
-        fixed_point_multiply_mixed (load_avg, 2),
-        1));
-  t->recent_cpu = fixed_point_add (
+  if (t == idle_thread)
+    return;
+
+  int double_load_avg = fixed_point_multiply_mixed (load_avg, 2);
+  int div = fixed_point_divide ( double_load_avg,
+      /* (2 * load_avg + 1) */
+      fixed_point_add_mixed ( double_load_avg, 1));
+int old_recent = t->recent_cpu;
+  /* (div * recent_cpu) + nice */
+  t->recent_cpu = fixed_point_add_mixed (
       fixed_point_multiply (div, t->recent_cpu),
       t->nice);
 }
@@ -834,7 +847,7 @@ mlfqs_calculate_load_avg (void)
 
   /* (1 / 60) * ready_threads */
   int t21 = fixed_point_divide_mixed (int2fixed_point (1), 60);
-  int t2 = fixed_point_multiply (t21, int2fixed_point (ready_threads));
+  int t2 = fixed_point_multiply_mixed (t21, ready_threads);
 
   load_avg = fixed_point_add (t1, t2);
 }

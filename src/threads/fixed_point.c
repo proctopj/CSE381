@@ -45,7 +45,7 @@ int fixed_point_multiply_mixed (int x, int n)
 
 int fixed_point_divide (int x, int y)
 {
-  return (int64_t)x / F * y;
+  return (int64_t)x * F / y;
 }
 
 int fixed_point_divide_mixed (int x, int n)

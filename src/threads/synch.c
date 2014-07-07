@@ -217,7 +217,7 @@ lock_acquire (struct lock *lock)
 
       /* Put myself on the waiting list for the lock */
       list_insert_ordered (&lock->holder->donation_list,
-          &lock->holder->donation_list_elem,
+          &thread_current ()->donation_list_elem,
           (list_less_func*)&compare_priority, NULL);
     }
 
