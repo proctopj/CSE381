@@ -179,8 +179,9 @@ bool compare_priority (const struct list_elem *a,
         void *aux);
 
 void priority_donation (void);
+void remove_lock (struct lock *lock);
 void reset_priority (void);
-void test_max_priority (void);
+void test_if_highest_priority (void);
 
 void mlfqs_calculate_priority (struct thread *t);
 void mlfqs_calculate_recent_cpu (struct thread *t);

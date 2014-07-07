@@ -220,6 +220,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
       else
         break;
     }
+  test_if_highest_priority ();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

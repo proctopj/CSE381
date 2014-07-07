@@ -127,7 +127,7 @@ sema_up (struct semaphore *sema)
   sema->value++;
 
   if (!intr_context ())
-    test_max_priority ();
+    test_if_highest_priority ();
 
   intr_set_level (old_level);
 }
@@ -243,12 +243,17 @@ lock_try_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level = intr_disable ();
+
   success = sema_try_down (&lock->semaphore);
   if (success)
     {
       lock->holder = thread_current ();
       thread_current ()->waiting_for_this_lock = NULL;
     }
+
+  intr_set_level (old_level);
+
   return success;
 }
 

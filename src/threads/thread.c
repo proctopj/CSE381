@@ -227,7 +227,7 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   old_level = intr_disable ();
-  test_max_priority ();
+  test_if_highest_priority ();
   intr_set_level (old_level);
 
   return tid;
@@ -339,8 +339,6 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread)
   {
-    // Remove and re-add TODO: why unnecessary?
-    // list_remove (&cur->elem);
     /* Yields the CPU to itself when it's the highest priority */
     list_insert_ordered (&ready_list, &cur->elem,
             (list_less_func*)&compare_priority, NULL);
@@ -377,22 +375,15 @@ thread_set_priority (int new_priority)
 
   enum intr_level old_level = intr_disable ();
 
-  struct thread *current_thread = thread_current ();
-
-  current_thread->priority_before_donation = new_priority;
+  int old_priority = thread_current ()->priority;
+  thread_current ()->priority_before_donation = new_priority;
 
   reset_priority ();
 
-  // TODO: don't understand this part...
-  if (current_thread->priority_before_donation < current_thread->priority)
+  if (old_priority < thread_current ()->priority)
     priority_donation ();
   else
-    test_max_priority ();
-
-  /* Remove from list and re-add */
-  /* list_remove (&current_thread->elem); */
-  /* list_insert_ordered (&ready_list, &current_thread->elem, */
-  /*     (list_less_func*)&compare_priority, NULL); */
+    test_if_highest_priority ();
 
   intr_set_level (old_level);
 }
@@ -416,8 +407,9 @@ thread_set_nice (int nice UNUSED)
   enum intr_level old_level = intr_disable ();
 
   thread_current ()->nice = nice;
+
   mlfqs_calculate_priority (thread_current ());
-  test_max_priority ();
+  test_if_highest_priority ();
 
   intr_set_level (old_level);
 }
@@ -440,8 +432,8 @@ thread_get_load_avg (void)
 {
   enum intr_level old_level = intr_disable ();
 
-  int load_avg_percent = fixed_point2int_round (
-      fixed_point_multiply_mixed (load_avg, 100));
+  int load_avg_percent = fixed_point_multiply_mixed (load_avg, 100);
+  load_avg_percent = fixed_point2int_round (load_avg_percent);
 
   intr_set_level (old_level);
   return load_avg_percent;
@@ -510,7 +502,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void) 
@@ -555,7 +547,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->donation_list);
 
   /* 4.4BSD scheduler  */
-  t->recent_cpu = RECENT_CPU_DEFAULT;
+  t->recent_cpu = int2fixed_point (RECENT_CPU_DEFAULT);
   t->nice = NICE_DEFAULT;
 
   /* User programs */
@@ -710,17 +702,20 @@ compare_priority (const struct list_elem *a,
 void
 priority_donation (void)
 {
+  if (thread_mlfqs)
+    return;
+
   struct thread *this_thread = thread_current ();
   struct lock *l = this_thread->waiting_for_this_lock;
   struct thread *that_thread;
 
-  int i;
+  int i = 0;
   while (l && i < 8)
     {
       that_thread = l->holder;
 
       /* Don't worry, that thread will get CPU time */
-      if (this_thread->priority <= that_thread->priority)
+      if (!that_thread || this_thread->priority <= that_thread->priority)
         return;
 
       /* "Donate" priority */
@@ -768,23 +763,29 @@ reset_priority (void)
     }
 }
 
+/*
+ * Checks if the running thread still has the highest priority in the
+ * ready queue and yields to the next highest priority thread if not
+ */
 void
-test_max_priority (void)
+test_if_highest_priority (void)
 {
   if ( list_empty(&ready_list) )
     return;
-  struct thread *t = list_entry(list_front(&ready_list),
+
+  struct thread *next_highest = list_entry(list_front(&ready_list),
       struct thread, elem);
   if (intr_context())
     {
       thread_ticks++;
-      if ( thread_current()->priority < t->priority ||
+      if ( thread_current()->priority < next_highest->priority ||
           (thread_ticks >= TIME_SLICE &&
-          thread_current()->priority == t->priority) )
-        intr_yield_on_return();
-      return;
+          thread_current()->priority == next_highest->priority) )
+        {
+          intr_yield_on_return();
+        }
     }
-  if (thread_current()->priority < t->priority)
+  else if (thread_current()->priority < next_highest->priority)
     thread_yield();
 }
 
