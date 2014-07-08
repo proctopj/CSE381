@@ -107,6 +107,7 @@ void cache_flush (void)
   cache_evict_all_dirty ();
 
   // Free
+  struct list_elem *e;
   for (e = list_begin (&cache_list); e != list_end (&cache_list); e = list_next (e))
     {
       struct cache_entry *entry = list_entry (e, struct cache_entry, cache_elem);
