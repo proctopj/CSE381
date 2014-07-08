@@ -544,7 +544,7 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Priority donation */
   t->priority_before_donation = t->priority;
   t->waiting_for_this_lock = NULL;
-  list_init (&t->donation_list);
+  list_init (&t->donated_to);
 
   /* 4.4BSD scheduler  */
   t->recent_cpu = int2fixed_point (RECENT_CPU_DEFAULT);
@@ -706,13 +706,17 @@ priority_donation (void)
     return;
 
   struct thread *this_thread = thread_current ();
-  struct lock *l = this_thread->waiting_for_this_lock;
+  struct lock *want_this_lock = this_thread->waiting_for_this_lock;
+  /* That thread that has the lock I want */
   struct thread *that_thread;
 
-  int i = 0;
-  while (l && i < 8)
+  int i;
+  for (i = 0; i < 8; i++)
     {
-      that_thread = l->holder;
+      if (!want_this_lock)
+        break;
+
+      that_thread = want_this_lock->holder;
 
       /* Don't worry, that thread will get CPU time */
       if (!that_thread || this_thread->priority <= that_thread->priority)
@@ -723,17 +727,14 @@ priority_donation (void)
 
       // Go deeper
       this_thread = that_thread;
-      l = this_thread->waiting_for_this_lock;
-
-      i++;
+      want_this_lock = this_thread->waiting_for_this_lock;
     }
-
 }
 
 void
 remove_lock(struct lock *lock)
 {
-  struct list *donations = &thread_current ()->donation_list;
+  struct list *donations = &thread_current ()->donated_to;
 
   struct list_elem *e = list_begin (donations);
   while (e != list_end (donations))
@@ -754,12 +755,12 @@ reset_priority (void)
   // Restore initial priority
   t->priority = t->priority_before_donation;
 
-  if (!list_empty (&t->donation_list))
+  if (!list_empty (&t->donated_to))
     {
-      struct thread *s = list_entry (list_front (&t->donation_list),
+      struct thread *next_highest = list_entry (list_front (&t->donated_to),
           struct thread, donation_list_elem);
-      if (s->priority > t->priority)
-        t->priority = s->priority;
+      if (next_highest->priority > t->priority)
+        t->priority = next_highest->priority;
     }
 }
 

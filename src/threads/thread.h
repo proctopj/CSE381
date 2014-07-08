@@ -107,7 +107,8 @@ struct thread
     /* Before donation */
     int priority_before_donation;
     struct lock *waiting_for_this_lock;
-    struct list donation_list;
+    /* List of threads that donated priority to */
+    struct list donated_to;
     struct list_elem donation_list_elem;
 
     /* 4.4BSD scheduler */
