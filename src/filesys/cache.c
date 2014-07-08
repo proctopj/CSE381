@@ -10,7 +10,6 @@
 /* Cache with space for 64 blocks */
 static struct list cache_list;
 static struct lock cache_lock;
-static uint32_t cache_size;
 
 struct cache_entry
   {
@@ -27,7 +26,6 @@ void cache_init (void)
 {
   list_init (&cache_list);
   lock_init (&cache_lock);
-  cache_size = 0;
 
   /* Periodically write dirty blocks */
   thread_create ("write_task", PRI_DEFAULT, (void*)cache_task_evict_dirty, NULL);
@@ -56,6 +54,7 @@ struct cache_entry* cache_get_cache_entry (block_sector_t sector)
 struct cache_entry* cache_add (block_sector_t sector)
 {
   // Cache has no space left
+  uint32_t cache_size = list_size (&cache_list);
   if (cache_size >= MAX_CACHE_SECTORS_SIZE)
     cache_evict ();
 
@@ -69,7 +68,6 @@ struct cache_entry* cache_add (block_sector_t sector)
   entry->last_access = timer_ticks ();
 
   list_push_back (&cache_list, &entry->cache_elem);
-  cache_size++;
 
   return entry;
 }
