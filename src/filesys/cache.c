@@ -94,7 +94,25 @@ void cache_evict_all_dirty (void)
     {
       struct cache_entry *entry = list_entry (e, struct cache_entry, cache_elem);
       if (entry && entry->is_dirty)
-        block_write (fs_device, entry->sector, &entry->block);
+        {
+          block_write (fs_device, entry->sector, &entry->block);
+          entry->is_dirty = false;
+        }
+    }
+}
+
+void cache_flush (void)
+{
+  // Save dirty data to disk
+  cache_evict_all_dirty ();
+
+  // Free
+  for (e = list_begin (&cache_list); e != list_end (&cache_list); e = list_next (e))
+    {
+      struct cache_entry *entry = list_entry (e, struct cache_entry, cache_elem);
+
+      list_remove (e);
+      free (entry);
     }
 }
 
