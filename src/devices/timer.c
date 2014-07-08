@@ -7,7 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-  
+
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -30,6 +30,9 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+/* Waiting threads */
+static struct list waiting_in_line;
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -37,6 +40,9 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+  /* Initialize list */
+  list_init (&waiting_in_line);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,22 +95,25 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
 
-  struct lock l;
-  lock_init(&l);
+  /* In order to pass alarm-negative and alarm-zero tests */
+  if (ticks < 0)
+    return;
 
-  while (timer_elapsed (start) < ticks) {
-    if (!lock_held_by_current_thread(&l))
-        lock_acquire(&l);
-    else
-        thread_yield();
-  }
+  enum intr_level old_level = intr_disable ();
 
-  if (lock_held_by_current_thread(&l))
-      lock_release(&l);
+  struct thread *current_thread = thread_current ();
+  int64_t start = timer_ticks ();
+  current_thread->wait_till_ticks = start + ticks;
+  /* Add list element of current thread to waiting list */
+  list_insert_ordered (&waiting_in_line, &current_thread->elem,
+      (list_less_func*)&compare_ticks, NULL);
+
+  /* Wait for timer_interrupt to handle me */
+  thread_block ();
+
+  intr_set_level (old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -176,13 +185,42 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  if (thread_mlfqs)
+    {
+      mlfqs_increment_recent_cpu (thread_current ());
+      if (ticks % TIMER_FREQ == 0)
+        {
+          mlfqs_calculate_load_avg ();
+          mlfqs_recalculate_priorities ();
+        }
+      if (ticks % RECALCULATE_FREQ == 0)
+        mlfqs_calculate_priority (thread_current ());
+    }
+
+  /* Iterate from beginning to end */
+  while (!list_empty (&waiting_in_line))
+    {
+      struct list_elem *e = list_front (&waiting_in_line);
+      struct thread *t = list_entry (e, struct thread, elem);
+
+      /* Waited patiently enough! */
+      if (t->wait_till_ticks <= ticks)
+        {
+          list_pop_front (&waiting_in_line);
+          thread_unblock (t);
+        }
+      else
+        break;
+    }
+  test_if_highest_priority ();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

@@ -24,6 +24,13 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* 4.4BSD scheduler */
+#define NICE_DEFAULT 0
+#define NICE_MAX 20
+#define NICE_MIN -20
+#define LOAD_AVG_DEFAULT 0
+#define RECENT_CPU_DEFAULT 0
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -93,6 +100,22 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* Wait till `ticks' becomes at least this much */
+    uint64_t wait_till_ticks;
+
+    /* List element for priority */
+    /* Before donation */
+    int priority_before_donation;
+    struct lock *waiting_for_this_lock;
+    /* List of threads that donated priority to */
+    struct list donated_to;
+    struct list_elem donation_list_elem;
+
+    /* 4.4BSD scheduler */
+    /* Niceness of this thread to other threads */
+    int nice;
+    int recent_cpu;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -100,6 +123,16 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    // Needed for file system sys calls
+    struct list file_list;
+    int fd;
+
+    // Needed for wait / exec sys calls
+    struct list child_list;
+    tid_t parent;
+    // Points to child_process struct in parent's child list
+    struct child_process* cp;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -138,4 +171,25 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* Added functions */
+bool compare_ticks (const struct list_elem *a,
+        const struct list_elem *b,
+        void *aux);
+bool compare_priority (const struct list_elem *a,
+        const struct list_elem *b,
+        void *aux);
+
+void priority_donation (void);
+void remove_lock (struct lock *lock);
+void reset_priority (void);
+void test_if_highest_priority (void);
+
+void mlfqs_calculate_priority (struct thread *t);
+void mlfqs_calculate_recent_cpu (struct thread *t);
+void mlfqs_calculate_load_avg (void);
+void mlfqs_increment_recent_cpu (struct thread *t);
+void mlfqs_recalculate_priorities (void);
+
+/* User programs */
+bool thread_alive (int pid);
 #endif /* threads/thread.h */

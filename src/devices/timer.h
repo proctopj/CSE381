@@ -7,6 +7,8 @@
 /* Number of timer interrupts per second. */
 #define TIMER_FREQ 100
 
+#define RECALCULATE_FREQ 4
+
 void timer_init (void);
 void timer_calibrate (void);
 
