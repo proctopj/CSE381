@@ -797,9 +797,9 @@ mlfqs_calculate_priority (struct thread *t)
     return;
 
   /* Fixed-point */
-  int recent_cpu = thread_current ()->recent_cpu;
+  int recent_cpu = t->recent_cpu;
   /* Integer */
-  int nice = thread_current ()->nice;
+  int nice = t->nice;
 
   int t1 = int2fixed_point (PRI_MAX);
   int t2 = fixed_point_divide_mixed (recent_cpu, 4);
@@ -815,7 +815,7 @@ mlfqs_calculate_priority (struct thread *t)
   else if (new_priority < PRI_MIN)
     new_priority = PRI_MIN;
 
-  thread_current ()->priority = new_priority;
+  t->priority = new_priority;
 }
 
 void
