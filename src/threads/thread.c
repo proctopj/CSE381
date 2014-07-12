@@ -544,7 +544,7 @@ init_thread (struct thread *t, const char *name, int priority)
   /* Priority donation */
   t->priority_before_donation = t->priority;
   t->waiting_for_this_lock = NULL;
-  list_init (&t->donated_to);
+  list_init (&t->donated_from);
 
   /* 4.4BSD scheduler  */
   t->recent_cpu = int2fixed_point (RECENT_CPU_DEFAULT);
@@ -734,7 +734,7 @@ priority_donation (void)
 void
 remove_lock(struct lock *lock)
 {
-  struct list *donations = &thread_current ()->donated_to;
+  struct list *donations = &thread_current ()->donated_from;
 
   struct list_elem *e = list_begin (donations);
   while (e != list_end (donations))
@@ -755,9 +755,9 @@ reset_priority (void)
   // Restore initial priority
   t->priority = t->priority_before_donation;
 
-  if (!list_empty (&t->donated_to))
+  if (!list_empty (&t->donated_from))
     {
-      struct thread *next_highest = list_entry (list_front (&t->donated_to),
+      struct thread *next_highest = list_entry (list_front (&t->donated_from),
           struct thread, donation_list_elem);
       if (next_highest->priority > t->priority)
         t->priority = next_highest->priority;
