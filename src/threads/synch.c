@@ -216,7 +216,7 @@ lock_acquire (struct lock *lock)
       thread_current ()->waiting_for_this_lock = lock;
 
       /* Put myself on the waiting list for the lock */
-      list_insert_ordered (&lock->holder->donated_to,
+      list_insert_ordered (&lock->holder->donated_from,
           &thread_current ()->donation_list_elem,
           (list_less_func*)&compare_priority, NULL);
     }
