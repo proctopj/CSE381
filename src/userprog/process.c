@@ -499,7 +499,7 @@ setup_stack (void **esp, const char* file_name, char** save_ptr)
     }
 
   char *token;
-  char **argv = malloc(DEFAULT_ARGV*sizeof(char *));
+  char **argv = malloc(DEFAULT_ARGV*sizeof(char *)); //why does this break on Jamieson's server?!
   int i, argc = 0, argv_size = DEFAULT_ARGV;
 
   // Push args onto stack
@@ -566,3 +566,5 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
+//Why do no-args and single-args still fail?!

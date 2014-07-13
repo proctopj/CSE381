@@ -1,4 +1,4 @@
-#include "userprog/syscall.h"
+, #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include <user/syscall.h>
@@ -14,11 +14,12 @@
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 
-#define MAX_ARGS 3
+#define MAX_ARGS 3 //breaks with more, leading to 1 subtest of multi-oom to fail.
 #define USER_VADDR_BOTTOM ((void *) 0x08048000)
 
 struct lock filesys_lock;
 
+//a shoddy implementation of a free buffer with reference names. If time permits, do this more formally.
 struct process_file {
   struct file *file;
   int fd;
@@ -305,7 +306,7 @@ void check_valid_ptr (const void *vaddr)
 
 int user_to_kernel_ptr(const void *vaddr)
 {
-  // TO DO: Need to check if all bytes within range are correct
+  // TODO: Need to check if all bytes within range are correct
   // for strings + buffers
   check_valid_ptr(vaddr);
   void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
@@ -430,6 +431,7 @@ void get_arg (struct intr_frame *f, int *arg, int n)
     }
 }
 
+//TODO: Fix a bug related to multi-OOM. Something is being overwritten and causes a crash.
 void check_valid_buffer (void* buffer, unsigned size)
 {
   unsigned i;
