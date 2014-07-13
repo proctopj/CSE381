@@ -10,7 +10,8 @@ This is a repository to hold the toy OS developed by Naoki, Patrick, and Bang
     $ make run
 
 ## PintOS
-The Perl script does not work by default. The following fixes are necessary:
+The Perl script does not work by default. The following fix is necessary: This fix only works for Threads. See [Wiki home](https://github.com/proctopj/CSE381/wiki#pintos-issues) for issues.
+
 
     diff --git a/src/utils/Pintos.pm b/src/utils/Pintos.pm
     index 70df40d..685aa37 100644
@@ -30,13 +31,10 @@ The Perl script does not work by default. The following fixes are necessary:
 
         my ($p) = $parts{$role} = {};
     -   if ($source eq 'file') {
-    +   if ($source eq 'FILE') {
+    +   if ($source eq 'file' or $source eq 'FILE') {
             if (read_mbr ($arg)) {
                 print STDERR "warning: $arg looks like a partitioned disk ";
                 print STDERR "(did you want --$role-from=$arg or --disk=$arg?)\n"
-
-These changes can be found in commit
-[fd59481](https://github.com/NigoroJr/CSE381/commit/fd59481685fab7b32cecc214f661af9a46e5c119)
 
 Run pintos with:
 
